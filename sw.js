@@ -1,4 +1,4 @@
-const CACHE = 'kobanya-felso-v3';
+const CACHE = 'kobanya-felso-v4';
 const FILES = [
   './',
   'index.html',

@@ -724,6 +724,7 @@ body:has(#vesLoupe:not([hidden]):not(.vl-off)) #tip{display:none!important}
 @media(prefers-reduced-motion:reduce){#vesLoupe{transition:opacity .12s}#vesLoupe.vl-off{transform:none}}
 #vesLoupe .vl-head{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 4px 10px;background:#0e1611;border-bottom:1px solid #000;font:700 11px/1.2 var(--mono,monospace);letter-spacing:.06em;color:#ffd98a}
 #vesLoupe .vl-head button{background:none;border:0;color:#f1ecd8;font-size:18px;line-height:1;cursor:pointer;padding:0 4px}
+#vesLoupe .vl-head b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 #vesLoupe canvas{display:block}
 #vesLoupe .vl-tip{padding:6px 10px 8px;border-top:1px solid #000;background:#1c2b20;font-size:11.5px}
 </style>
@@ -3989,8 +3990,8 @@ function drawGroup(c, cm, g, z, fs, hits) {
   vesKnob(c, rx, ry, z * 0.92, ang, KNOB_RED, g.L.entry);
   plate(rx, 'BE', 'KI');
   const hy = (wy + ly) / 2, hry = (ly - wy) / 2 + 8 * z;
-  hits.push({ type: 'vRed', id: g.id + '.BE', x: rx - half / 2, y: hy, rx: half / 2, ry: hry });
-  hits.push({ type: 'vRed', id: g.id + '.KI', x: rx + half / 2, y: hy, rx: half / 2, ry: hry });
+  hits.push({ type: 'vRed', id: g.id + '.BE', x: rx - half / 2, y: hy, rx: half / 2, ry: hry, kx: rx, ky: ry, kr: 22 * z });
+  hits.push({ type: 'vRed', id: g.id + '.KI', x: rx + half / 2, y: hy, rx: half / 2, ry: hry, kx: rx, ky: ry, kr: 22 * z });
   g.knobs.forEach((pair, i) => {
     const [kx, ky] = W2S(cm, ...g.knobXY[i]);
     const on = pair.indexOf(g.green), a = on < 0 ? 0 : (pair.length > 1 && on === 0 ? -1 : 1) * Math.PI / 4;
@@ -4001,7 +4002,7 @@ function drawGroup(c, cm, g, z, fs, hits) {
     if (pair.length > 1) plate(kx, nm(pair[0]), nm(pair[1])); else plate(kx, nm(pair[0]));
     pair.forEach((k, j) => {
       const single = pair.length < 2;
-      hits.push({ type: 'vGr', id: g.id + '.' + k, x: single ? kx : kx + (j ? half / 2 : -half / 2), y: hy, rx: single ? half : half / 2, ry: hry });
+      hits.push({ type: 'vGr', id: g.id + '.' + k, x: single ? kx : kx + (j ? half / 2 : -half / 2), y: hy, rx: single ? half : half / 2, ry: hry, kx, ky, kr: 22 * z });
     });
   });
 }
@@ -4037,7 +4038,7 @@ function drawPult(c, cm) {
     c.fillStyle = '#e9e0c4'; c.fillRect(x - 15 * z, py - 7 * z, 30 * z, 14 * z);
     pText(c, id, x, py + 0.5, fs(10.5), '#16130e', 'center', 28 * z);
     lampDot(c, x + 22 * z, py, 3.2 * z, s.lock || locks[id] ? '#ffd23a' : s.occ ? '#ff2a1a' : null);
-    hits.push({ type: 'vSw', id, x, y: (wy + py) / 2, rx: 34 * z, ry: (py - wy) / 2 + 8 * z });
+    hits.push({ type: 'vSw', id, x, y: (wy + py) / 2, rx: 34 * z, ry: (py - wy) / 2 + 8 * z, kx: x, ky: y - 4 * z, kr: 22 * z });
     for (const g of Object.values(VES)) if (g.need && g.needUntil > now2 && g.need.includes(id)) drawGuideRing(c, x, y - 4 * z, 21 * z);
   }
   {
@@ -4058,7 +4059,7 @@ function drawPult(c, cm) {
     hits.push({ type: 'pCommon', id, x, y, rx: 15 * z, ry: 15 * z });
   }
   if (hover && hover.cv === c.canvas) { c.strokeStyle = '#ffffffaa'; c.lineWidth = 1; c.strokeRect(hover.x - hover.rx, hover.y - hover.ry, hover.rx * 2, hover.ry * 2); }
-  for (const h of hits) if (guideHL.pult.has(h.type + ':' + h.id)) drawGuideRing(c, h.x, h.y, Math.min(h.rx, h.ry) + 4 * z);
+  for (const h of hits) if (guideHL.pult.has(h.type + ':' + h.id)) { if (h.kx != null) drawGuideRing(c, h.kx, h.ky, h.kr); else drawGuideRing(c, h.x, h.y, Math.min(h.rx, h.ry) + 4 * z); }
   drawPultHands(c, hits, z);
   drawVesFind(c, cm);
   hitCache.set(c.canvas, hits);
@@ -4116,12 +4117,13 @@ function vesLoupeOpen(el, ev) {
   if (!el || !['vGr', 'vRed', 'vSw', 'pCommon'].includes(el.type)) return;
   if (!vesLoupe.el) vesLoupeBuild();
   const L = vesLoupe, cam = L.cam;
-  const W = Math.min(380, innerWidth - 16), H = Math.round(W * 0.46), dpr = window.devicePixelRatio || 1;
-  let [cx, cy] = S2W(pcam, el.x, el.y), span, title;
-  if (el.type === 'vSw') { [cx, cy] = SWBTN[el.id]; cy -= 2; span = 225; title = `${el.id}. sz. váltó`; }
-  else if (el.type === 'pCommon') { cx = 2000; cy = 895; span = 230; title = 'Közös gombok'; }
-  else if (el.type === 'vRed') { const g = VES[el.id.split('.')[0]]; cx = g.redX + VES_PITCH * g.k; cy = g.redY - 10; span = 240; title = VES_PLATE[g.id].join(' '); }
-  else { const [gid, k] = el.id.split('.'), g = VES[gid], i = g.knobs.findIndex(p => p.includes(k)); [cx, cy] = g.knobXY[i]; cy -= 10; span = 215; title = VES_PLATE[g.id].join(' '); }
+  const W = Math.min(190, innerWidth - 16), dpr = window.devicePixelRatio || 1;
+  let [cx, cy] = S2W(pcam, el.x, el.y), span = 64, title;
+  if (el.type === 'vSw') { [cx, cy] = SWBTN[el.id]; cy -= 6; title = `${el.id}. sz. váltó`; }
+  else if (el.type === 'pCommon') { const b = COMMON[el.id]; cx = b.x; cy = b.y - 4; span = 72; title = b.label.join(' '); }
+  else if (el.type === 'vRed') { const g = VES[el.id.split('.')[0]]; cx = g.redX; cy = g.redY; title = `${VES_SHORT[g.id]} · jelző`; }
+  else { const [gid, k] = el.id.split('.'), g = VES[gid], i = g.knobs.findIndex(p => p.includes(k)); [cx, cy] = g.knobXY[i]; title = `${VES_SHORT[g.id]} · ${g.knobs[i].map(t => ROMAN[t].replace('.', '')).join('/')}. vg.`; }
+  const H = Math.round(W * (el.type === 'vSw' ? 1.45 : 1.6));
   Object.assign(cam, { x: cx, y: cy, w: W, h: H, z: W / span, zx: 0, zy: 0 });
   L.cv.style.width = W + 'px'; L.cv.style.height = H + 'px'; L.cv.width = Math.round(W * dpr); L.cv.height = Math.round(H * dpr);
   L.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
