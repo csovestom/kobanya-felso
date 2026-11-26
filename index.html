@@ -3870,17 +3870,21 @@ function pText(c, txt, x, y, size, col, align, maxWidth) {
   if (maxWidth) c.fillText(txt, x, y, maxWidth); else c.fillText(txt, x, y);
 }
 function vesKnob(c, x, y, z, ang, col, num) {
-  c.fillStyle = '#00000066'; c.beginPath(); c.arc(x + 2 * z, y + 3 * z, 17 * z, 0, 7); c.fill();
-  const base = c.createRadialGradient(x - 5 * z, y - 6 * z, 1, x, y, 17 * z);
+  c.fillStyle = '#00000066'; c.beginPath(); c.arc(x + 2 * z, y + 3 * z, 18 * z, 0, 7); c.fill();
+  const base = c.createRadialGradient(x - 5 * z, y - 6 * z, 1, x, y, 18 * z);
   base.addColorStop(0, '#5b5f58'); base.addColorStop(1, '#151714');
-  c.fillStyle = base; c.beginPath(); c.arc(x, y, 16 * z, 0, 7); c.fill();
+  c.fillStyle = base; c.beginPath(); c.arc(x, y, 17 * z, 0, 7); c.fill();
+  const hw = 11 * z, hl = 27 * z;
   c.save(); c.translate(x, y); c.rotate(ang);
-  c.fillStyle = '#00000055'; roundRect(c, -6.5 * z + 2 * z, -27 * z + 3 * z, 13 * z, 54 * z, 6.5 * z); c.fill();
-  const g = c.createLinearGradient(-7 * z, 0, 7 * z, 0);
-  g.addColorStop(0, col[0]); g.addColorStop(0.45, col[1]); g.addColorStop(1, col[2]);
-  c.fillStyle = g; roundRect(c, -6.5 * z, -27 * z, 13 * z, 54 * z, 6.5 * z); c.fill();
-  c.strokeStyle = '#0008'; c.lineWidth = 1; c.stroke();
-  c.fillStyle = '#ffffff30'; roundRect(c, -4 * z, -24 * z, 3 * z, 20 * z, 1.5 * z); c.fill();
+  c.fillStyle = '#00000066'; roundRect(c, -hw + 2.5 * z, -hl + 3.5 * z, hw * 2, hl * 2, hw); c.fill();
+  const g = c.createLinearGradient(-hw, 0, hw, 0);
+  g.addColorStop(0, col[0]); g.addColorStop(0.3, col[1]); g.addColorStop(0.55, col[1]); g.addColorStop(1, col[0]);
+  c.fillStyle = g; roundRect(c, -hw, -hl, hw * 2, hl * 2, hw); c.fill();
+  const v = c.createLinearGradient(0, -hl, 0, hl);
+  v.addColorStop(0, '#ffffff38'); v.addColorStop(0.18, '#ffffff00'); v.addColorStop(0.82, '#00000000'); v.addColorStop(1, '#00000059');
+  c.fillStyle = v; roundRect(c, -hw, -hl, hw * 2, hl * 2, hw); c.fill();
+  c.strokeStyle = '#000a'; c.lineWidth = 1.2; roundRect(c, -hw, -hl, hw * 2, hl * 2, hw); c.stroke();
+  c.fillStyle = '#ffffff3a'; roundRect(c, -hw * 0.62, -hl + 4 * z, hw * 0.42, hl * 0.75, hw * 0.21); c.fill();
   c.restore();
   c.fillStyle = '#f3efe0'; c.beginPath(); c.arc(x, y, 7.5 * z, 0, 7); c.fill(); c.strokeStyle = '#2a2720'; c.lineWidth = 1; c.stroke();
   if (num) { const f = Math.max(6, Math.round((String(num).length > 2 ? 6.5 : 8.5) * z)); pText(c, String(num), x, y + 0.5, f, '#16130e'); }
