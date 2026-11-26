@@ -803,6 +803,7 @@ body:has(#vesLoupe:not([hidden]):not(.vl-off)) #tip{display:none!important}
         <button id="btnHouse" aria-pressed="false" title="Kőbánya felső felvételi épülete">Épület</button>
         <button id="btnLine" aria-pressed="false">Vonalszakasz</button>
       </div>
+      <div class="grp"><button id="btnFind" aria-pressed="true" title="Mutató: a terepasztalon kattintott váltó, jelző vagy vágány gombját megmutatja a pulton (be/ki)">?</button></div>
       <div class="grp"><button id="camAuto" aria-pressed="true" title="Követő kamera (K). Megtartja a kézzel beállított nagyítást. A térkép elhúzásával 20 másodpercre szünetel." class="on">Követés</button></div>
       <div class="grp" hidden><button id="aerialBtn" aria-pressed="false" title="A 2018-as légifotó be- és kikapcsolása">Légifotó</button></div>
       <output id="routePrompt" hidden></output>
@@ -4059,6 +4060,7 @@ function drawPult(c, cm) {
   if (hover && hover.cv === c.canvas) { c.strokeStyle = '#ffffffaa'; c.lineWidth = 1; c.strokeRect(hover.x - hover.rx, hover.y - hover.ry, hover.rx * 2, hover.ry * 2); }
   for (const h of hits) if (guideHL.pult.has(h.type + ':' + h.id)) drawGuideRing(c, h.x, h.y, Math.min(h.rx, h.ry) + 4 * z);
   drawPultHands(c, hits, z);
+  drawVesFind(c, cm);
   hitCache.set(c.canvas, hits);
   $('#pultHint').textContent = armed ? ARM_TEXT[armed] + ' …' : 'Fekete: váltó · Zöld: vágány (első lezárás) · Vörös: jelző BE/KI';
 }
@@ -4145,6 +4147,52 @@ function vesLoupeDraw() {
   drawPult(L.ctx, L.cam);
   if (performance.now() - L.tipAt > 250) { L.tipAt = performance.now(); const t = pultTipHtml(L.item); const d = L.el.querySelector('.vl-tip'); if (d.innerHTML !== t) d.innerHTML = t; }
 }
+let vesFindOn = true, vesFind = null;
+try { vesFindOn = localStorage.getItem('kfFind') !== '0'; } catch (err) {}
+function vesFindFrom(el) {
+  if (!vesFindOn || !el) { vesFind = null; return; }
+  const pts = [], names = [];
+  const red = g => { pts.push([g.redX, g.redY, 30]); names.push(`${VES_SHORT[g.id]} vörös gombja`); };
+  const green = (g, k) => { const i = g.knobs.findIndex(p => p.includes(k)); if (i >= 0) pts.push([...g.knobXY[i], 26]); };
+  if (el.type === 'switch' && SWBTN[el.id]) { pts.push([SWBTN[el.id][0], SWBTN[el.id][1] - 6, 30]); names.push(`${el.id}. sz. fekete váltógomb`); }
+  else if ((el.type === 'signal' || el.type === 'pre') && SIGS[el.id]) {
+    const id = el.id;
+    if (P[SIGS[id].node]) pts.push([...BP(P[SIGS[id].node]), 9]);
+    for (const g of Object.values(VES)) {
+      if (g.L.entry === id) red(g);
+      const ks = g.tracks.filter(k => { const d = vesKI(g.L, k); return d && d.start === id; });
+      if (ks.length) { red(g); ks.forEach(k => green(g, k)); names.push(`${ROMAN[ks[0]].replace('.', '')}. vágány zöld gombja`); }
+    }
+  } else if (el.type === 'section') {
+    const k = TRACKS.find(k => EDGE[TRACK_EDGE[k]] && EDGE[TRACK_EDGE[k]].sec === el.id);
+    if (k != null) { for (const g of Object.values(VES)) green(g, k); names.push(`${ROMAN[k].replace('.', '')}. vágány zöld gombjai`); }
+  } else if (el.type === 'end' && VES[el.id]) red(VES[el.id]);
+  if (!pts.length) { vesFind = null; return; }
+  vesFind = { pts, until: performance.now() + 7000 };
+  if (names.length) msg('A pulton: ' + [...new Set(names)].join(', ') + '.', 'info');
+}
+function drawVesFind(c, cm) {
+  if (!vesFind) return;
+  const left = vesFind.until - performance.now();
+  if (left <= 0) { vesFind = null; return; }
+  const zz = cm.z, a = Math.min(1, left / 800), p = (Math.sin(performance.now() / 160) + 1) / 2;
+  c.save(); c.globalAlpha = a;
+  for (const [wx, wy, r] of vesFind.pts) {
+    const [x, y] = W2S(cm, wx, wy), rr = (r + 4 + 4 * p) * zz;
+    c.strokeStyle = '#00000099'; c.lineWidth = 6 * zz; c.beginPath(); c.arc(x, y, rr, 0, 7); c.stroke();
+    c.strokeStyle = '#ffe14a'; c.shadowColor = '#ffb020'; c.shadowBlur = 10; c.lineWidth = 3 * zz;
+    c.beginPath(); c.arc(x, y, rr, 0, 7); c.stroke(); c.shadowBlur = 0;
+  }
+  c.restore();
+}
+function vesFindToggle(on) {
+  vesFindOn = on; if (!on) vesFind = null;
+  try { localStorage.setItem('kfFind', on ? '1' : '0'); } catch (err) {}
+  const b = document.getElementById('btnFind');
+  if (b) { b.setAttribute('aria-pressed', on); b.classList.toggle('on', on); }
+}
+document.getElementById('btnFind') && (document.getElementById('btnFind').onclick = () => { vesFindToggle(!vesFindOn); msg(vesFindOn ? 'Mutató bekapcsolva: kattints a terepasztalon egy váltóra, jelzőre vagy vágányra, és a pult kiemeli a hozzá tartozó gombot.' : 'Mutató kikapcsolva.', 'info'); });
+vesFindToggle(vesFindOn);
 function swFacing(w) { const T = EDGE[w.trunk], other = T.a === w.node ? T.b : T.a; return NDEF[other][0] < NDEF[w.node][0] ? 1 : -1; }
 function swArrowRight(w) { return (swFacing(w) > 0) === w.below; }
 function drawSwitchSign(c, x, y, s, id, w, locked) {
@@ -4396,6 +4444,7 @@ let lastTrainClick = null, mapZoomBack = null;
 const MAP_DBL_ZOOM = 2.6;
 let pultGlideFrom = null;
 function mapClick(el, mods) {
+  vesFindFrom(el);
   if (!el) { selStart = null; closeInfo(); return; }
   if (el.type === 'train') {
     $('#tip').style.display = 'none';
