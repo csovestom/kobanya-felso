@@ -909,7 +909,7 @@ body.bz-course .tu-head span{letter-spacing:.06em}
           <dt>Váltójelző</dt><dd><span class="swrow"><svg class="swsign" viewBox="0 0 20 28" aria-hidden="true"><rect x="2" y="1" width="16" height="8" fill="#f4f0e2" stroke="#111"></rect><text x="10" y="7.4" font-size="6.5" font-weight="700" text-anchor="middle" fill="#111">2</text><rect x="2" y="9" width="16" height="16" fill="#121212"></rect><rect x="8" y="12" width="4" height="10" fill="#fff"></rect></svg> egyenes irány &nbsp; <svg class="swsign" viewBox="0 0 20 28" aria-hidden="true"><rect x="2" y="1" width="16" height="8" fill="#f4f0e2" stroke="#111"></rect><text x="10" y="7.4" font-size="6.5" font-weight="700" text-anchor="middle" fill="#111">2</text><rect x="2" y="9" width="16" height="16" fill="#121212"></rect><path d="M6 11.5 L15 17 L6 22.5 L6 19.6 L10.5 17 L6 14.4Z" fill="#fff"></path></svg> kitérő, a csúcs felől nézve (a nyíl a kitérés felé mutat) &nbsp; <svg class="swsign" viewBox="0 0 20 28" aria-hidden="true"><rect x="2" y="1" width="16" height="8" fill="#f4f0e2" stroke="#111"></rect><text x="10" y="7.4" font-size="6.5" font-weight="700" text-anchor="middle" fill="#111">2</text><rect x="2" y="9" width="16" height="16" fill="#121212"></rect><rect x="5" y="15" width="10" height="4" fill="#fff"></rect></svg> kitérő, a gyök felől nézve</span>A váltó mindig a simuló csúcssín felé terel. A terepasztalon minden váltó mellett ott a váltójelzője, fölötte a váltó száma; a zöld keret azt jelzi, hogy a váltó vágányúttal le van zárva. (Gyermekvasutas tankönyv, F1-34–35)</dd>
           <dt>Csúcs, gyök</dt><dd>A váltó csúcssínek felőli vége a csúcs (itt ágazik el a két irány), a másik vége a gyök. Csúccsal szemben haladva a váltó állása dönti el, merre megy a vonat; gyök felől haladva a vonat csak a beállított ágról jöhet rá.</dd>
           <dt>Foglaltság</dt><dd>A szigetelt szakaszon vonat van (piros). Foglalt szakaszon a váltó nem állítható, és oda (hívójelzés nélkül) vágányút sem állítható.</dd>
-          <dt>Oldás</dt><dd>A vonat mögött a vágányút szakaszai maguktól felszabadulnak. Jelzőállítás előtt a vörös gomb visszafordítható alapállásba. Jelzőállítás után a vágányút csak kényszeroldással törölhető (időzített). A vonat elhaladása után a vörös gomb feletti bal ablak zöldre vált és csenget: ekkor fordítsd vissza a vörös, majd a zöld gombot.</dd>
+          <dt>Oldás</dt><dd>A vonat mögött a vágányút szakaszai maguktól felszabadulnak. A vörös gomb 45°-ra fordításával a vágányút reteszszinten lezáródik: ezután a gomb csak a vonat elhaladása után vagy kényszeroldással fordítható vissza alapállásba (a kényszeroldás azonnali, de csak akkor szabad, ha vonat nem közeledik, vagy már megállt). A vonat elhaladása után a vörös gomb feletti bal ablak zöldre vált és csenget: ekkor fordítsd vissza a vörös, majd a zöld gombot.</dd>
           <dt>Bejárati / kijárati jelző</dt><dd>A, Z (Budapest-Keleti), B (Józsefváros), X, C (Ferencváros), D (Kőbánya-Teher) a nyugati, V, Y (Rákos, 80a), T, U (Rákos, 120a), W (Kőbánya kiágazás) a keleti bejárati jelzők. Nyugat felé E, F, G, H, J, K és L7–L14, kelet felé M, N, O, P, Q, R és S7–S14 a vágányok kijárati jelzői.</dd>
           <dt>Előjelző</dt><dd>A bejárati jelző előtt áll, előre jelzi annak állását, hogy a vonat időben fékezhessen.</dd>
           <dt>Térköz, térközjelző</dt><dd>A nyílt vonal szakaszai. A térközjelző önműködően véd az előtte haladó vonattól.</dd>
@@ -3799,7 +3799,7 @@ function vesSync() {
     } else if (g.route) {
       const hadTrain = g.hadTrain;
       g.route = null; g.hadTrain = false;
-      if (g.forced || autoMode || !hadTrain) vesReset(g);
+      if (autoMode || (!hadTrain && !g.forced)) vesReset(g);
       else { g.done = true; vesBell(true); }
     } else if (autoMode && (g.done || g.green)) vesReset(g);
     if (g.green && !g.route && !g.done) {
@@ -3832,7 +3832,7 @@ function vesGreen(id, k) {
   }
   g.green = k; g.okDefs = ok.map(d => d.id); g.need = null; g.done = false;
   vesRouteBell();
-  msg(`${VES_PLATE[id][0]}: zöld gomb a(z) ${ROMAN[k]} vágány felé. A váltók lezárva, a vágánytáblán fehér csík.`, 'ok');
+  msg(`${VES_PLATE[id][0]}: zöld gomb a(z) ${ROMAN[k]} vágány felé. A váltók lezárva, a vágánytáblán sárga csík.`, 'ok');
 }
 function vesRed(id, side) {
   const g = VES[id], L = g.L;
@@ -3841,7 +3841,13 @@ function vesRed(id, side) {
   const r = g.route && active.find(q => q.id === g.route);
   if (a === 'KO') {
     if (!r) return msg(`Kényszeroldás: a(z) ${VES_PLATE[id][0]} csoportban nincs lezárt vágányút.`, 'info');
-    g.forced = true; kenyszerOldas(r.def.start); return;
+    showHands('pCommon:KO', 'vRed:' + id + '.' + side);
+    const near = !r.train && r.second && trains.find(t => t.state === 'run' && t.v > 0.3 && t.nextSig === r.def.start && t.nextSigDist < KO_NEAR);
+    if (near) return msg(`Kényszeroldás nem végezhető: a(z) ${near.no} sz. vonat közeledik a(z) ${r.def.start} jelzőhöz. Előbb állítsd Megállj!-ra a jelzőt, és várd meg, amíg a vonat megáll.`, 'err');
+    r.sigReq = false; r.forceAt = now + 0.01; COUNT.KO++; g.forced = true;
+    msg(`Kényszeroldás: ${r.def.name} – a vágányút-záró retesz feloldva, mintha a vonat elhaladt volna (számláló: ${COUNT.KO}). Fordítsd vissza a vörös, majd a zöld gombot.`, 'warn');
+    if (!r.def.secs.some(x => SEC[x].occ)) cancelRoute(r, true);
+    computeAspects(); return;
   }
   if (a === 'HB') {
     const sig = side === 'BE' ? L.entry : g.green && exitSigOf(g.green, -vesDirIn(L));
@@ -3861,6 +3867,7 @@ function vesRed(id, side) {
       const wrong = vesWrongSw(def); g.need = wrong.map(([s]) => s); g.needUntil = performance.now() + 8000;
       return vesJam(g, 'r' + side, `A vörös gomb megszorul: a(z) ${def.name} váltói nem jó állásban vannak (${wrong.map(([s, p]) => s + ' ' + swSign(p)).join(', ') || 'állítás alatt'}).`);
     }
+    if (side === 'BE' && SIGS[L.entry] && SIGS[L.entry].hivoUntil > now) return vesJam(g, 'r' + side, `A vörös gomb megszorul: a(z) ${L.entry} bejárati jelzőn hívójelzés ég.`);
     const problem = routeProblem(def);
     if (problem) return vesJam(g, 'r' + side, 'A vörös gomb megszorul. ' + problem);
     if (!setRoute(def, false)) return vesJam(g, 'r' + side);
@@ -3875,8 +3882,7 @@ function vesRed(id, side) {
     jelzoAllit(r.def.start); g.red = dir + '90'; r.second = true;
     return;
   }
-  if (r && r.second) return vesJam(g, 'r' + side, `${VES_PLATE[id][0]}: jelzőállítás után a vágányút csak kényszeroldással oldható fel (Kényszeroldás + vörös gomb).`);
-  if (r) torles(r.def.start);
+  if (r) return vesJam(g, 'r' + side, `${VES_PLATE[id][0]}: a vörös gomb 45°-nál a vágányutat reteszszinten lezárta. Csak a vonat elhaladása után vagy kényszeroldással (Kényszeroldás + vörös gomb) fordítható vissza.`);
   g.red = 0; g.route = null;
 }
 function vesSwitch(id) {
@@ -3954,7 +3960,7 @@ function drawBoard(c, cm, hits, z, fs) {
     const p = e.ppts.map(B);
     strokePoly(c, p, '#14120e', 7.5 * z + 1);
     const pp = trimPoly(p, 2.5 * z, 2.5 * z);
-    const col = occLit.has(e.id) ? '#ff2a1a' : edgeRouteLocked(e) || green.has(e.id) ? '#fffbe6' : null;
+    const col = occLit.has(e.id) ? '#ff2a1a' : edgeRouteLocked(e) ? '#fffbe6' : green.has(e.id) ? '#ffd23a' : null;
     if (col) { c.shadowColor = col; c.shadowBlur = 3 * pultGlow; strokePoly(c, pp, col, 3.4 * z); c.shadowBlur = 0; }
     else strokePoly(c, pp, '#3b372e', 3.4 * z);
   }
@@ -4022,11 +4028,19 @@ function drawGroup(c, cm, g, z, fs, hits) {
   const dir = g.red ? g.red.slice(0, 2) : null, deg = g.red ? +g.red.slice(2) : 0;
   const ang = (dir === 'BE' ? -1 : 1) * deg * Math.PI / 180 + jam('rBE') + jam('rKI');
   const clear = r && ASP[r.def.start] && ASP[r.def.start] !== 'VOROS' && ASP[r.def.start] !== 'HIVO';
-  const win = d => dir !== d ? null : clear && deg === 90 ? '#3dcf5a' : '#f7f3e3';
-  pair2(rx, 'BEJ', 'KIJ', win('BE') || (g.done && r && vesDirOf(r.def) === 'BE' ? '#f7f3e3' : null), win('KI') || (g.done && r && vesDirOf(r.def) === 'KI' ? '#f7f3e3' : null));
+  const locked = r && !g.done && !r.forceAt && deg >= 45;
+  const sigWin = !deg ? '#d8321f' : deg === 90 && !clear ? 'half' : '#f7f3e3';
+  vesWin(c, rx - cw / 2 - 1 * z, wy, cw, wh, locked ? '#f7f3e3' : '#3dcf5a', '', null, z);
+  vesWin(c, rx + cw / 2 + 1 * z, wy, cw, wh, sigWin === 'half' ? '#f7f3e3' : sigWin, '', null, z);
+  if (sigWin === 'half') { c.fillStyle = '#d8321f'; c.fillRect(rx + 1 * z, wy, cw, wh / 2); }
   if (r && r.forceAt > now) lampDot(c, rx, wy - 10 * z, 3 * z, blink % 0.8 < 0.4 ? '#f4f0df' : null);
   vesKnob(c, rx, ry, z * 0.92, ang, KNOB_RED, g.L.entry);
   plate(rx, 'BE', 'KI');
+  if (clear && deg === 90) {
+    const w = cw * 2 + 4 * z, h = 14 * z, bx = dir === 'BE' ? rx - w / 2 : rx;
+    c.fillStyle = '#fff6c8'; c.shadowColor = '#fff6c8'; c.shadowBlur = 4 * pultGlow; c.fillRect(bx, ly - h / 2, w / 2, h); c.shadowBlur = 0;
+    pText(c, dir === 'BE' ? 'Be' : 'Ki', bx + w / 4, ly + 0.5, fs(9.5), '#16130e', 'center', w / 2 - 2);
+  }
   const hy = (wy + ly) / 2, hry = (ly - wy) / 2 + 8 * z;
   hits.push({ type: 'vRed', id: g.id + '.BE', x: rx - half / 2, y: hy, rx: half / 2, ry: hry, kx: rx, ky: ry, kr: 22 * z });
   hits.push({ type: 'vRed', id: g.id + '.KI', x: rx + half / 2, y: hy, rx: half / 2, ry: hry, kx: rx, ky: ry, kr: 22 * z });
@@ -6068,17 +6082,19 @@ const LESSONS = [
     { do: `Bejárat Rákos (80a) felől az I. vágányra. A „RÁKOS 80a BAL” csoportban fordítsd a zöld gombot az ${pb('I')} felé.`, why: 'Ehhez a bejárathoz csak az 1-es váltó kell, egyenesben, és az már ott áll. A zöld gomb lezárja a váltót, a vágánytáblán sárga csík jelenik meg. Ez az első lezárás.', keys: ['vGr:RFb.1'], done: () => VES.RFb.green === '1' },
     { do: `Meggondoltad magad: fordítsd vissza a zöld gombot: kattints újra az ${pb('I')} oldalára.`, why: 'Amíg a vörös gomb alapállásban van, a zöld gomb szabadon visszafordítható. A sárga csík kialszik, a váltó feloldódik.', keys: ['vGr:RFb.1'], done: () => !VES.RFb.green },
     { do: `Állítsd be újra: zöld gomb az ${pb('I')} felé.`, why: 'Ugyanaz a gomb, ugyanaz az irány.', keys: ['vGr:RFb.1'], done: () => VES.RFb.green === '1' },
-    { do: `Fordítsd a vörös gombot a ${pb('BE')} oldalra (45°).`, why: 'A berendezés ellenőriz, majd villamosan lezárja a vágányutat: kigyullad a jobb felső, aztán a bal felső ablak. A jelző még Megállj!-t mutat.', keys: ['vRed:RFb.BE'], done: () => VES.RFb.red === 'BE45' },
-    { do: `Fordítsd tovább 90°-ra: újra a ${pb('BE')} oldal.`, why: 'A V jelző szabadra vált, az alsó bal ablakban megjelenik a BE felirat. Ez a második lezárás.', keys: ['vRed:RFb.BE'], done: () => ASP.V !== 'VOROS' },
-    { do: `Nem jön vonat: állítsd Megállj!-ra: kattints a 90°-os vörös gombra (vissza 45°-ra).`, why: 'A jelző vörösre vált, de a vágányút lezárva marad. Jelzőállítás után a gomb már nem fordítható alapállásba.', keys: ['vRed:RFb.BE'], done: () => VES.RFb.red === 'BE45' },
-    { do: `Oldd fel kényszeroldással: ${pb('Kényszeroldás')}, majd a vörös gomb.`, why: 'Élesben ez plombált gomb, csak az állomásfőnök engedélyével használható. Ha vonat közeledik, az oldás 3 perc múlva történik.', keys: ['pCommon:KO', 'vRed:RFb.BE'], done: () => !activeFrom.V && !VES.RFb.green },
+    { do: `Fordítsd a vörös gombot a ${pb('BE')} oldalra (45°).`, why: 'A berendezés ellenőriz, majd villamosan lezárja a vágányutat: a jobb felső ablak vörösről fehérre, a bal felső zöldről fehérre vált. A jelző még Megállj!-t mutat.', keys: ['vRed:RFb.BE'], done: () => VES.RFb.red === 'BE45' },
+    { do: `Fordítsd tovább 90°-ra: újra a ${pb('BE')} oldal.`, why: 'A V jelző szabadra vált, a gomb alatti táblán kigyullad a Be felirat. Ez a második lezárás.', keys: ['vRed:RFb.BE'], done: () => ASP.V !== 'VOROS' },
+    { do: `Nem jön vonat: állítsd Megállj!-ra: kattints a 90°-os vörös gombra (vissza 45°-ra).`, why: 'A jelző vörösre vált, de a vágányút lezárva marad: a 45°-on túl fordított gomb már nem fordítható alapállásba. A jobb felső ablak részben vörös lesz.', keys: ['vRed:RFb.BE'], done: () => VES.RFb.red === 'BE45' },
+    { do: `Oldd fel kényszeroldással: ${pb('Kényszeroldás')}, majd a vörös gomb.`, why: 'Élesben ez plombált gomb, csak az állomásfőnök engedélyével használható, és csak ha vonat nem közeledik vagy már megállt. A bal felső ablak zöldre vált, mintha a vonat elhaladt volna. A számláló rögzíti.', keys: ['pCommon:KO', 'vRed:RFb.BE'], done: () => !activeFrom.V },
+    { do: `Állítsd alapállásba a csoportot: kattints a vörös gomb ${pb('KI')} oldalára, aztán a zöld gombra.`, why: 'Kényszeroldás után is neked kell visszafordítanod a gombokat: előbb a vöröset, aztán a zöldet.', keys: () => VES.RFb.red ? ['vRed:RFb.KI'] : ['vGr:RFb.1'], done: () => !VES.RFb.green && !VES.RFb.red },
   ] },
   { title: 'Kijárati vágányút', sub: 'Váltó, zöld gomb, vörös gomb KI', steps: [
     { do: `Kijárat az I. vágányról Budapest-Keleti felé. Próbáld meg: a „BP. KELETI BAL” csoportban fordítsd a zöld gombot az ${pb('I')} felé.`, why: 'A gomb megszorul: a 46-os váltó nem jó állásban van. A pult kiemeli, melyik váltót kell átállítani.', keys: ['vGr:KEb.1'], done: () => VES.KEb.need && VES.KEb.needUntil > performance.now() || VES.KEb.green === '1' },
     { do: `Állítsd a 46-os váltót kitérőbe: ${pb('46')}.`, why: 'A váltót a VES-en mindig te állítod, a berendezés csak ellenőriz.', keys: ['vSw:46'], done: () => SW['46'].pos === 'R' && !SW['46'].moving },
     { do: `Most fordítsd a zöld gombot az ${pb('I')} felé.`, why: 'A 46-os váltó lezáródik, a sárga csík az I. vágány nyugati végétől a vonal felé világít.', keys: ['vGr:KEb.1'], done: () => VES.KEb.green === '1' },
     { do: `Vörös gomb a ${pb('KI')} oldalra, kétszer: 45°, majd 90°.`, why: 'Az E kijárati jelző szabadra vált. A menetirány nyila a vágánytáblán nyugat felé fordul: amíg így áll, szemből nem indulhat vonat ezen a vágányon.', keys: ['vRed:KEb.KI'], done: () => ASP.E !== 'VOROS' },
-    { do: `Nem indul vonat: kattints a vörös gombra (vissza 45°-ra), aztán ${pb('Kényszeroldás')} + vörös gomb.`, why: 'Feloldás után a menetirány is felszabadul.', keys: ['pCommon:KO', 'vRed:KEb.KI'], done: () => !activeFrom.E && !VES.KEb.green },
+    { do: `Nem indul vonat: kattints a vörös gombra (vissza 45°-ra), aztán ${pb('Kényszeroldás')} + vörös gomb.`, why: 'Feloldás után a menetirány is felszabadul.', keys: ['pCommon:KO', 'vRed:KEb.KI'], done: () => !activeFrom.E },
+    { do: `Állítsd alapállásba a csoportot: vörös gomb ${pb('BE')} oldalára, aztán a zöld gomb.`, why: 'Előbb a vörös, aztán a zöld gomb, végül szükség szerint a váltók.', keys: () => VES.KEb.red ? ['vRed:KEb.BE'] : ['vGr:KEb.1'], done: () => !VES.KEb.green && !VES.KEb.red },
   ] },
   { title: 'Vonat fogadása és indítása', sub: 'Gyakorlóvonat a tanpályán', steps: [
     { do: `Vonat indult Rákosról. Bejárat az I. vágányra: „RÁKOS 80a BAL” zöld gomb az ${pb('I')} felé.`, why: 'A vonat a bejárati jelzőnél megáll, ha nincs vágányútja. Időben állíts neki utat.', keys: ['vGr:RFb.1'], enter: tutorTrain, done: () => VES.RFb.green === '1' || !!(tT() && tT().arrAt != null) },
@@ -6316,7 +6332,7 @@ function drawGuideRing(c, x, y, r) {
 const COMMON_HELP = {
   HB: 'Hívójelzés. Utána a csoport vörös gombjának BE oldala (bejárati jelző) vagy KI oldala (a zöld gombbal kiválasztott vágány kijárati jelzője): a jelzőn villogó fehér fény jelenik meg, a vonat 15 km/h-val, a berendezés ellenőrzése nélkül haladhat. Csak végszükség esetén! A számláló rögzíti.',
   SK: 'Szigetelés kikapcsolása. Utána egy fekete váltógomb: foglaltnak mutatott váltó állítása saját felelősségre. A számláló rögzíti.',
-  KO: 'Kényszeroldás (plombált gomb). Utána a csoport vörös gombja: a jelzőállítás után már csak így oldható fel a vágányút. Ha vonat közeledik, az oldás 3 perc késleltetéssel történik. A számláló rögzíti.',
+  KO: 'Kényszeroldás (plombált gomb). Utána a csoport vörös gombja: a 45°-on lezárt vágányút a vonat elhaladása nélkül csak így oldható fel. Az oldás azonnali, de csak akkor végezhető, ha vonat nem közeledik vagy már megállt. A számláló rögzíti.',
 };
 function vesRedState(g) {
   if (g.done) return 'a vonat elhaladt, a felső bal ablak zöld: fordítsd vissza a vörös, majd a zöld gombot';
@@ -7629,7 +7645,7 @@ const BZ_STATION = {
           'Ehhez a bejárathoz csak az 1-es váltó kell, egyenesben, és az már ott áll. A zöld gomb lezárja a váltót, a vágánytáblán csík jelenik meg. Ez az első lezárás.',
           { enter: tutorTrain, past: inA }),
         H.half('V-E', `Fordítsd a vörös gombot a ${pb('BE')} oldalra (45°).`,
-          'A berendezés ellenőriz, majd villamosan lezárja a vágányutat: kigyullad a jobb felső, aztán a bal felső ablak. A jelző még Megállj!-t mutat.', { past: inA }),
+          'A berendezés ellenőriz, majd villamosan lezárja a vágányutat: a jobb felső ablak vörösről fehérre, a bal felső zöldről fehérre vált. A jelző még Megállj!-t mutat.', { past: inA }),
         H.signal('V-E', `Fordítsd tovább 90°-ra: újra a ${pb('BE')} oldal.`,
           'A V bejárati jelző szabadra vált, az alsó ablakban megjelenik a BE felirat. Ez a második lezárás.', { past: inA }),
         H.wait('Figyeld a vágánytáblát: a vörös csík maga a próbavonat. Bejár az I. vágányra, és megáll a peronnál.',
