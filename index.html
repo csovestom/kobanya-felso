@@ -3694,29 +3694,32 @@ const VES_ORDER = ['KT', 'KEb', 'KEj', 'JV', 'FVb', 'FVj', 'RFb', 'RFj', 'RLb', 
 const vesDirIn = L => L.side === 'W' ? 1 : -1;
 const vesBE = (L, k) => ROUTE[`${L.entry}-${exitSigOf(k, vesDirIn(L))}`] || null;
 const vesKI = (L, k) => ROUTE[`${exitSigOf(k, -vesDirIn(L))}-${L.id}`] || null;
-const VES = {};
+const VES = {}, VES_PITCH = 58;
 {
   const groups = VES_ORDER.map(id => {
     const L = LINES[id];
     const tracks = TRACKS.filter(k => vesBE(L, k) || vesKI(L, k));
     const knobs = [];
     for (let i = 0; i < tracks.length; i += 2) knobs.push(tracks.slice(i, i + 2));
-    const cols = Math.max(1, Math.ceil(knobs.length / 3));
-    return { id, L, tracks, knobs, cols, w: 92 + cols * 52 };
+    return { id, L, tracks, knobs, w: 30 + (knobs.length + 1) * VES_PITCH + 12 };
   });
-  const gap = 8, total = groups.reduce((s, g) => s + g.w, 0) + gap * (groups.length - 1);
-  const k = Math.min(1, 2096 / total);
-  let x = 1062 - total * k / 2;
-  for (const g of groups) {
-    g.x = x; g.w *= k; x += g.w + gap * k;
-    g.redX = g.x + 42 * k; g.redY = 680;
-    g.knobXY = g.knobs.map((_, i) => [g.x + (92 + 26 + Math.floor(i / 3) * 52) * k, 598 + (i % 3) * 70]);
-    Object.assign(g, { green: null, red: 0, route: null, done: false, forced: false, hadTrain: false, okDefs: [], need: null, needUntil: 0, jam: 0, jamKey: '' });
-    VES[g.id] = g;
-  }
+  const bands = [groups.slice(0, 6), groups.slice(6)], gap = 10;
+  bands.forEach((band, bi) => {
+    const total = band.reduce((s, g) => s + g.w, 0) + gap * (band.length - 1);
+    const k = Math.min(1, 2090 / total);
+    let x = 1062 - total * k / 2;
+    const top = bi ? 668 : 532;
+    for (const g of band) {
+      g.x = x; g.w *= k; g.k = k; g.top = top; x += g.w + gap * k;
+      g.redX = g.x + (15 + VES_PITCH / 2) * k; g.redY = top + 72;
+      g.knobXY = g.knobs.map((_, i) => [g.redX + (12 + (i + 1) * VES_PITCH) * k, top + 72]);
+      Object.assign(g, { green: null, red: 0, route: null, done: false, forced: false, hadTrain: false, okDefs: [], need: null, needUntil: 0, jam: 0, jamKey: '' });
+      VES[g.id] = g;
+    }
+  });
 }
 const SWBTN = {};
-SW_ORDER.forEach((id, i) => { const row = Math.floor(i / 26), col = i % 26; SWBTN[id] = [52 + col * 71.6, 858 + row * 84]; });
+SW_ORDER.forEach((id, i) => { const row = Math.floor(i / 26), col = i % 26; SWBTN[id] = [52 + col * 71.6, 858 + row * 90]; });
 const vesGroupOf = def => def.line || SIGS[def.start].line || null;
 const vesTrackOf = def => def.line ? SIGS[def.start].track : def.track;
 const vesDirOf = def => def.line ? 'KI' : 'BE';
@@ -3948,47 +3951,62 @@ function drawBoard(c, cm, hits, z, fs) {
   }
 }
 function drawGroup(c, cm, g, z, fs, hits) {
-  const [gx, gy] = W2S(cm, g.x, 532), [gx2, gy2] = W2S(cm, g.x + g.w, 802);
+  const [gx, gy] = W2S(cm, g.x, g.top), [gx2, gy2] = W2S(cm, g.x + g.w, g.top + 130);
   c.fillStyle = '#00000040'; c.fillRect(gx + 3 * z, gy + 3 * z, gx2 - gx, gy2 - gy);
   const pg = c.createLinearGradient(0, gy, 0, gy2);
   pg.addColorStop(0, '#2e4a36'); pg.addColorStop(1, '#22382a');
   c.fillStyle = pg; c.fillRect(gx, gy, gx2 - gx, gy2 - gy);
   c.strokeStyle = '#0f1a12'; c.lineWidth = 1.5; c.strokeRect(gx + 0.5, gy + 0.5, gx2 - gx - 1, gy2 - gy - 1);
   c.strokeStyle = '#4f6e57'; c.lineWidth = 1; c.beginPath(); c.moveTo(gx + 1, gy2 - 1); c.lineTo(gx + 1, gy + 1); c.lineTo(gx2 - 1, gy + 1); c.stroke();
-  const [px, py] = W2S(cm, g.x + 5, 536);
-  vesPlate(c, px, py, gx2 - gx - 10 * z, 17 * z, [VES_PLATE[g.id].join(' ')], z);
+  const [px, py] = W2S(cm, g.x + 5, g.top + 4);
+  vesPlate(c, px, py, gx2 - gx - 10 * z, 15 * z, [VES_PLATE[g.id].join(' ')], z);
+  const [, wy] = W2S(cm, 0, g.top + 31), [, sy0] = W2S(cm, 0, g.top + 41), [, sy1] = W2S(cm, 0, g.top + 44);
+  c.fillStyle = '#9fb7a855'; c.fillRect(gx + 4 * z, sy0, gx2 - gx - 8 * z, sy1 - sy0 + 1);
+  c.fillStyle = '#ffffff22'; c.fillRect(gx + 4 * z, sy0, gx2 - gx - 8 * z, 1);
+  const [, ly] = W2S(cm, 0, g.top + 112);
+  const half = VES_PITCH * g.k * cm.zx2 / 2, cw = Math.min(half - 3 * z, 24 * z), wh = 12 * z;
   const jam = k => g.jamKey === k && performance.now() - g.jam < 450 ? Math.sin((performance.now() - g.jam) / 22) * 0.12 : 0;
+  const pair2 = (x, a, b, fa, fb) => {
+    vesWin(c, x - cw / 2 - 1 * z, wy, cw, wh, fa || null, fa ? a : '', null, z);
+    vesWin(c, x + cw / 2 + 1 * z, wy, cw, wh, fb || null, fb ? b : '', null, z);
+  };
+  const plate = (x, a, b) => {
+    const w = cw * 2 + 4 * z, h = 14 * z;
+    c.fillStyle = '#e9e0c4'; c.fillRect(x - w / 2, ly - h / 2, w, h);
+    c.strokeStyle = '#16130e'; c.lineWidth = 1;
+    if (b != null) { c.beginPath(); c.moveTo(x, ly - h / 2); c.lineTo(x, ly + h / 2); c.stroke(); pText(c, a, x - w / 4, ly + 0.5, fs(9.5), '#16130e', 'center', w / 2 - 2); pText(c, b, x + w / 4, ly + 0.5, fs(9.5), '#16130e', 'center', w / 2 - 2); }
+    else pText(c, a, x, ly + 0.5, fs(9.5), '#16130e', 'center', w - 2);
+  };
   const [rx, ry] = W2S(cm, g.redX, g.redY);
   const r = g.route && active.find(q => q.id === g.route);
   const dir = g.red ? g.red.slice(0, 2) : null, deg = g.red ? +g.red.slice(2) : 0;
   const ang = (dir === 'BE' ? -1 : 1) * deg * Math.PI / 180 + jam('rBE') + jam('rKI');
   const clear = r && ASP[r.def.start] && ASP[r.def.start] !== 'VOROS' && ASP[r.def.start] !== 'HIVO';
-  const ww = 15 * z, wh = 10 * z;
-  vesWin(c, rx - 10 * z, ry - 72 * z, ww, wh, g.done ? '#3dcf5a' : r ? '#f7f3e3' : null, '', null, z);
-  vesWin(c, rx + 10 * z, ry - 72 * z, ww, wh, g.red ? '#f7f3e3' : null, '', null, z);
-  vesWin(c, rx - 10 * z, ry - 54 * z, ww, wh, dir === 'BE' && deg === 90 && clear ? '#f7f3e3' : null, dir === 'BE' && deg === 90 && clear ? 'BE' : '', null, z);
-  vesWin(c, rx + 10 * z, ry - 54 * z, ww, wh, dir === 'KI' && deg === 90 && clear ? '#f7f3e3' : null, dir === 'KI' && deg === 90 && clear ? 'KI' : '', null, z);
-  if (r && r.forceAt > now) { lampDot(c, rx, ry - 88 * z, 3 * z, blink % 0.8 < 0.4 ? '#f4f0df' : null); }
-  vesKnob(c, rx, ry, z * 1.3, ang, KNOB_RED, g.L.entry);
-  c.fillStyle = '#e9e0c4'; c.fillRect(rx - 28 * z, ry + 42 * z, 56 * z, 16 * z);
-  c.strokeStyle = '#16130e'; c.lineWidth = 1; c.beginPath(); c.moveTo(rx, ry + 42 * z); c.lineTo(rx, ry + 58 * z); c.stroke();
-  pText(c, 'BE', rx - 14 * z, ry + 50.5 * z, fs(10), '#16130e'); pText(c, 'KI', rx + 14 * z, ry + 50.5 * z, fs(10), '#16130e');
-  hits.push({ type: 'vRed', id: g.id + '.BE', x: rx - 19 * z, y: ry + 8 * z, rx: 19 * z, ry: 50 * z });
-  hits.push({ type: 'vRed', id: g.id + '.KI', x: rx + 19 * z, y: ry + 8 * z, rx: 19 * z, ry: 50 * z });
+  const win = d => dir !== d ? null : clear && deg === 90 ? '#3dcf5a' : '#f7f3e3';
+  pair2(rx, 'BEJ', 'KIJ', win('BE') || (g.done && r && vesDirOf(r.def) === 'BE' ? '#f7f3e3' : null), win('KI') || (g.done && r && vesDirOf(r.def) === 'KI' ? '#f7f3e3' : null));
+  if (r && r.forceAt > now) lampDot(c, rx, wy - 10 * z, 3 * z, blink % 0.8 < 0.4 ? '#f4f0df' : null);
+  vesKnob(c, rx, ry, z * 0.92, ang, KNOB_RED, g.L.entry);
+  plate(rx, 'BE', 'KI');
+  const hy = (wy + ly) / 2, hry = (ly - wy) / 2 + 8 * z;
+  hits.push({ type: 'vRed', id: g.id + '.BE', x: rx - half / 2, y: hy, rx: half / 2, ry: hry });
+  hits.push({ type: 'vRed', id: g.id + '.KI', x: rx + half / 2, y: hy, rx: half / 2, ry: hry });
   g.knobs.forEach((pair, i) => {
     const [kx, ky] = W2S(cm, ...g.knobXY[i]);
-    const on = pair.indexOf(g.green), a = on < 0 ? 0 : (on === 0 ? -1 : 1) * Math.PI / 4;
-    vesKnob(c, kx, ky - 4 * z, z * 1.02, a + jam('g' + pair[0]) + jam('g' + pair[1]), KNOB_GREEN, '');
+    const on = pair.indexOf(g.green), a = on < 0 ? 0 : (pair.length > 1 && on === 0 ? -1 : 1) * Math.PI / 4;
+    const nm = k => ROMAN[k].replace('.', '');
+    if (pair.length > 1) pair2(kx, nm(pair[0]), nm(pair[1]), on === 0 ? '#f7f3e3' : null, on === 1 ? '#f7f3e3' : null);
+    else vesWin(c, kx, wy, cw, wh, on === 0 ? '#f7f3e3' : null, on === 0 ? nm(pair[0]) : '', null, z);
+    vesKnob(c, kx, ky, z * 0.92, a + jam('g' + pair[0]) + jam('g' + (pair[1] || '')), KNOB_GREEN, '');
+    if (pair.length > 1) plate(kx, nm(pair[0]), nm(pair[1])); else plate(kx, nm(pair[0]));
     pair.forEach((k, j) => {
-      const lx = pair.length > 1 ? kx + (j ? 14 : -14) * z : kx, lit = g.green === k;
-      vesWin(c, lx, ky + 28 * z, 25 * z, 12 * z, lit ? '#f7f3e3' : '#b9b08f', ROMAN[k].replace('.', ''), null, z);
-      hits.push({ type: 'vGr', id: g.id + '.' + k, x: pair.length > 1 ? kx + (j ? 13 : -13) * z : kx, y: ky + 2 * z, rx: (pair.length > 1 ? 13 : 25) * z, ry: 34 * z });
+      const single = pair.length < 2;
+      hits.push({ type: 'vGr', id: g.id + '.' + k, x: single ? kx : kx + (j ? half / 2 : -half / 2), y: hy, rx: single ? half : half / 2, ry: hry });
     });
   });
 }
 function drawPult(c, cm) {
   vesSync();
-  const hits = []; const z = cm.z;
+  const hits = []; const z = cm.z; cm.zx2 = cm.zx || cm.z;
   const fs = s => Math.max(7, Math.round(s * z));
   const dg = c.createLinearGradient(0, 0, 0, cm.h);
   dg.addColorStop(0, '#1f3226'); dg.addColorStop(1, '#17261c');
@@ -4011,14 +4029,15 @@ function drawPult(c, cm) {
   for (const [id, xy] of Object.entries(SWBTN)) {
     const [x, y] = W2S(cm, ...xy); const w = SW[id], s = SEC[w.sec];
     const tgt = w.moving ? w.target : w.pos;
-    vesKnob(c, x, y - 8 * z, z * 1.15, (tgt === 'N' ? -1 : 1) * 0.62, KNOB_BLACK, '');
-    pText(c, '+', x - 29 * z, y - 26 * z, fs(12), '#c9bd9a'); pText(c, '−', x + 29 * z, y - 26 * z, fs(12), '#c9bd9a');
-    vesWin(c, x - 21 * z, y + 29 * z, 10 * z, 10 * z, w.moving ? (blink % 0.5 < 0.25 ? '#ff3a24' : '#5a1810') : '#f7f3e3', '', null, z);
-    c.fillStyle = '#e9e0c4'; c.fillRect(x - 14 * z, y + 22 * z, 28 * z, 14 * z);
-    pText(c, id, x, y + 29.5 * z, fs(10.5), '#16130e', 'center', 27 * z);
-    lampDot(c, x + 21 * z, y + 29 * z, 3.2 * z, s.lock || locks[id] ? '#ffd23a' : s.occ ? '#ff2a1a' : null);
-    hits.push({ type: 'vSw', id, x, y: y - 2 * z, rx: 35 * z, ry: 40 * z });
-    for (const g of Object.values(VES)) if (g.need && g.needUntil > now2 && g.need.includes(id)) drawGuideRing(c, x, y - 8 * z, 23 * z);
+    const [, wy] = W2S(cm, 0, xy[1] - 42), [, py] = W2S(cm, 0, xy[1] + 30);
+    const mv = w.moving && blink % 0.5 < 0.25;
+    vesWin(c, x, wy, 22 * z, 11 * z, w.moving ? (mv ? '#ff3a24' : '#5a1810') : '#f7f3e3', swSign(tgt), null, z);
+    vesKnob(c, x, y - 4 * z, z * 0.92, (tgt === 'N' ? 0 : Math.PI / 4), KNOB_BLACK, '');
+    c.fillStyle = '#e9e0c4'; c.fillRect(x - 15 * z, py - 7 * z, 30 * z, 14 * z);
+    pText(c, id, x, py + 0.5, fs(10.5), '#16130e', 'center', 28 * z);
+    lampDot(c, x + 22 * z, py, 3.2 * z, s.lock || locks[id] ? '#ffd23a' : s.occ ? '#ff2a1a' : null);
+    hits.push({ type: 'vSw', id, x, y: (wy + py) / 2, rx: 34 * z, ry: (py - wy) / 2 + 8 * z });
+    for (const g of Object.values(VES)) if (g.need && g.needUntil > now2 && g.need.includes(id)) drawGuideRing(c, x, y - 4 * z, 21 * z);
   }
   {
     const [ax, ay] = W2S(cm, 1890, 810), [bx, by] = W2S(cm, 2110, 994);
@@ -4099,8 +4118,8 @@ function vesLoupeOpen(el, ev) {
   let [cx, cy] = S2W(pcam, el.x, el.y), span, title;
   if (el.type === 'vSw') { [cx, cy] = SWBTN[el.id]; cy -= 2; span = 225; title = `${el.id}. sz. váltó`; }
   else if (el.type === 'pCommon') { cx = 2000; cy = 895; span = 230; title = 'Közös gombok'; }
-  else if (el.type === 'vRed') { const g = VES[el.id.split('.')[0]]; cx = g.redX + 30; cy = g.redY - 14; span = 265; title = VES_PLATE[g.id].join(' '); }
-  else { const [gid, k] = el.id.split('.'), g = VES[gid], i = g.knobs.findIndex(p => p.includes(k)); [cx, cy] = g.knobXY[i]; cy += 4; span = 215; title = VES_PLATE[g.id].join(' '); }
+  else if (el.type === 'vRed') { const g = VES[el.id.split('.')[0]]; cx = g.redX + VES_PITCH * g.k; cy = g.redY - 10; span = 240; title = VES_PLATE[g.id].join(' '); }
+  else { const [gid, k] = el.id.split('.'), g = VES[gid], i = g.knobs.findIndex(p => p.includes(k)); [cx, cy] = g.knobXY[i]; cy -= 10; span = 215; title = VES_PLATE[g.id].join(' '); }
   Object.assign(cam, { x: cx, y: cy, w: W, h: H, z: W / span, zx: 0, zy: 0 });
   L.cv.style.width = W + 'px'; L.cv.style.height = H + 'px'; L.cv.width = Math.round(W * dpr); L.cv.height = Math.round(H * dpr);
   L.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
